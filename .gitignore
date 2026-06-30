@@ -1,0 +1,10 @@
+# Dependências
+node_modules
+
+# Build
+dist
+
+# Variáveis de ambiente (versione apenas o .env.example)
+.env
+.env.local
+.env.*.local

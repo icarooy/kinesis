@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    /* Color tokens monocromáticos - tema claro */
+    --color-primary: 0 0 0;
+    --color-primary-dark: 30 30 30;
+    --color-accent: 60 60 60;
+    
+    --color-background: 255 255 255;
+    --color-foreground: 0 0 0;
+    --color-card: 250 250 250;
+    --color-card-foreground: 0 0 0;
+    --color-border: 230 230 230;
+    --color-muted: 245 245 245;
+    --color-muted-foreground: 100 100 100;
+  }
+
+  .dark {
+    --color-background: 18 18 18;
+    --color-foreground: 255 255 255;
+    --color-card: 30 30 30;
+    --color-card-foreground: 255 255 255;
+    --color-border: 50 50 50;
+    --color-muted: 40 40 40;
+    --color-muted-foreground: 160 160 160;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Tipografia Tomorrow-style (geométrica, futurista) para títulos */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Tomorrow', 'Inter', sans-serif;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  h1 {
+    font-size: 2rem;
+    line-height: 1.2;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+  }
+
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+  }
+
+  h4 {
+    font-size: 1.125rem;
+    line-height: 1.4;
+  }
+
+  p {
+    font-size: 0.9375rem;
+    line-height: 1.6;
+  }
+
+  small {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+}
+
+@layer utilities {
+  .bg-background {
+    background-color: rgb(var(--color-background));
+  }
+  
+  .bg-card {
+    background-color: rgb(var(--color-card));
+  }
+  
+  .text-foreground {
+    color: rgb(var(--color-foreground));
+  }
+  
+  .text-card-foreground {
+    color: rgb(var(--color-card-foreground));
+  }
+  
+  .text-muted-foreground {
+    color: rgb(var(--color-muted-foreground));
+  }
+  
+  .border-border {
+    border-color: rgb(var(--color-border));
+  }
+  
+  .bg-muted {
+    background-color: rgb(var(--color-muted));
+  }
+}
