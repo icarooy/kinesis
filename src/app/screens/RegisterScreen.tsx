@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { Shield, BookOpen, Trophy, ArrowLeft, User, Mail, Lock, Building, Briefcase, Calendar, FileText } from 'lucide-react';
+import { toast } from 'sonner';
 import { supabase } from '../../lib/supabase';
 
 interface Props {
@@ -40,6 +41,7 @@ function resolveSystemRole(userType: UserType, cargo: string): SystemRole | null
 export default function RegisterScreen({ onRegister }: Props) {
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>('selection');
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [userType, setUserType] = useState<UserType>(null);
   const [formData, setFormData] = useState({
     name: '',
@@ -64,19 +66,19 @@ export default function RegisterScreen({ onRegister }: Props) {
 
     // Para atletas, valida se aceitou os termos
     if (userType === 'ATHLETE' && !acceptedTerms) {
-      alert('Você precisa aceitar os termos de responsabilidade para continuar.');
+      toast.error('Você precisa aceitar os termos de responsabilidade para continuar.');
       return;
     }
 
     // Para clubes, valida se aceitou os termos
     if (userType === 'CLUB_OWNER' && !acceptedClubTerms) {
-      alert('Você precisa aceitar os termos de prestação de serviços para continuar.');
+      toast.error('Você precisa aceitar os termos de prestação de serviços para continuar.');
       return;
     }
 
     // Para admins, valida se aceitou os termos
     if (userType === 'CLUB_ADMIN' && !acceptedAdminTerms) {
-      alert('Você precisa aceitar os termos de responsabilidade profissional para continuar.');
+      toast.error('Você precisa aceitar os termos de responsabilidade profissional para continuar.');
       return;
     }
 
@@ -87,10 +89,11 @@ export default function RegisterScreen({ onRegister }: Props) {
     // Define o systemRole da API a partir do tipo (e do cargo, no caso de admin).
     const systemRole = resolveSystemRole(userType, cargo);
     if (!systemRole) {
-      alert('Selecione o cargo para continuar.');
+      toast.error('Selecione o cargo para continuar.');
       return;
     }
 
+    setIsSubmitting(true);
     try {
       // Cria o usuário no Supabase Auth. Como a confirmação de e-mail está
       // ativada, o signUp NÃO retorna sessão — o perfil na nossa API só pode
@@ -109,14 +112,16 @@ export default function RegisterScreen({ onRegister }: Props) {
       });
 
       if (error) {
-        alert(`Não foi possível criar a conta: ${error.message}`);
+        toast.error(`Não foi possível criar a conta: ${error.message}`);
         return;
       }
 
-      alert('Conta criada! Enviamos um e-mail de confirmação. Confirme seu e-mail para acessar.');
+      toast.success('Conta criada! Enviamos um e-mail de confirmação. Confirme seu e-mail para acessar.');
       navigate('/login');
     } catch {
-      alert('Não foi possível conectar ao servidor. Tente novamente.');
+      toast.error('Não foi possível conectar ao servidor. Tente novamente.');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -457,9 +462,17 @@ export default function RegisterScreen({ onRegister }: Props) {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.98 }}
             type="submit"
-            className="w-full py-4 bg-black text-white rounded-xl font-semibold mt-6"
+            disabled={isSubmitting}
+            className="w-full py-4 bg-black text-white rounded-xl font-semibold mt-6 disabled:opacity-60 flex items-center justify-center gap-2"
           >
-            Criar Conta
+            {isSubmitting ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                Criando conta...
+              </>
+            ) : (
+              'Criar Conta'
+            )}
           </motion.button>
         </form>
 

@@ -7,6 +7,7 @@ import {
 import { useState, useEffect } from "react";
 import { AppDataProvider } from "./contexts/AppDataContext";
 import { useClubStore } from "./stores/clubStore";
+import { Toaster } from "./components/ui/sonner";
 import OnboardingScreen1 from "./screens/OnboardingScreen1";
 import OnboardingScreen2 from "./screens/OnboardingScreen2";
 import OnboardingScreen3 from "./screens/OnboardingScreen3";
@@ -84,6 +85,7 @@ function App() {
 
   return (
     <AppDataProvider>
+      <Toaster position="top-center" />
       <Router>
         <Routes>
           {!hasSeenOnboarding ? (

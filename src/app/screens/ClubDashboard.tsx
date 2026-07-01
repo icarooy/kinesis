@@ -1,4 +1,5 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { Home, Activity, MessageCircle, Trophy, User } from 'lucide-react';
 import ResponsiveLayout from '../components/layout/ResponsiveLayout';
 import ClubHomeScreen from './club/ClubHomeScreen';
@@ -52,19 +53,29 @@ export default function ClubDashboard({ onLogout }: Props) {
       onLogout={onLogout}
       userRole="CLUB"
     >
-      {/* Rotas das telas internas */}
-      <Routes>
-        <Route path="/" element={<ClubHomeScreen />} />
-        <Route path="/activities" element={<ActivitiesScreen />} />
-        <Route path="/chat" element={<ChatScreen />} />
-        <Route path="/leaderboard" element={<LeaderboardScreen />} />
-        <Route path="/calendar" element={<CalendarScreen />} />
-        <Route path="/payments" element={<ClubPaymentsScreen />} />
-        <Route path="/profile" element={<ProfileScreen onLogout={onLogout} />} />
-        <Route path="/club-profile-settings" element={<ClubProfileSettingsScreen />} />
-        <Route path="/athletes" element={<AthletesManagementScreen />} />
-        <Route path="/classes" element={<ClassesManagementScreen />} />
-      </Routes>
+      {/* Rotas das telas internas com transição de entrada/saída por rota */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentPath}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<ClubHomeScreen />} />
+            <Route path="/activities" element={<ActivitiesScreen />} />
+            <Route path="/chat" element={<ChatScreen />} />
+            <Route path="/leaderboard" element={<LeaderboardScreen />} />
+            <Route path="/calendar" element={<CalendarScreen />} />
+            <Route path="/payments" element={<ClubPaymentsScreen />} />
+            <Route path="/profile" element={<ProfileScreen onLogout={onLogout} />} />
+            <Route path="/club-profile-settings" element={<ClubProfileSettingsScreen />} />
+            <Route path="/athletes" element={<AthletesManagementScreen />} />
+            <Route path="/classes" element={<ClassesManagementScreen />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
     </ResponsiveLayout>
   );
 }

@@ -3,9 +3,11 @@ import { ArrowLeft, Camera, User, Mail, Calendar, Phone, Users, Save } from 'luc
 import { useNavigate } from 'react-router-dom';
 import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { toast } from 'sonner';
 import { useClubStore } from '../../stores/clubStore';
 import { api, type ApiError } from '../../services/api';
 import ImageCropModal from '../../components/ImageCropModal';
+import { Skeleton } from '../../components/ui/skeleton';
 
 interface AthleteProfileForm {
   name: string;
@@ -122,14 +124,14 @@ export default function AthleteProfileSettingsScreen() {
     setIsSaving(true);
     try {
       await api('PUT', `/api/users/${currentUser.id}`, payload);
-      alert('Perfil atualizado com sucesso! ✅');
+      toast.success('Perfil atualizado com sucesso!');
       navigate('/dashboard/profile');
     } catch (err) {
       const apiError = err as ApiError;
       if (apiError.status === 400 && apiError.fieldErrors) {
-        alert(Object.values(apiError.fieldErrors).join(' '));
+        toast.error(Object.values(apiError.fieldErrors).join(' '));
       } else {
-        alert(apiError.message ?? 'Não foi possível salvar o perfil.');
+        toast.error(apiError.message ?? 'Não foi possível salvar o perfil.');
       }
     } finally {
       setIsSaving(false);
@@ -160,8 +162,21 @@ export default function AthleteProfileSettingsScreen() {
             <p className="text-gray-500">Usuário não autenticado</p>
           </div>
         ) : isLoading ? (
-          <div className="bg-gray-50 rounded-xl p-8 text-center">
-            <p className="text-gray-500">Carregando...</p>
+          <div>
+            {/* Avatar */}
+            <div className="flex flex-col items-center mb-8">
+              <Skeleton className="w-24 h-24 rounded-full mb-4" />
+              <Skeleton className="h-4 w-48" />
+            </div>
+            {/* Campos */}
+            <div className="space-y-4">
+              {[0, 1, 2, 3].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-3 w-32" />
+                  <Skeleton className="h-14 w-full rounded-xl" />
+                </div>
+              ))}
+            </div>
           </div>
         ) : error ? (
           <div className="bg-gray-50 rounded-xl p-8 text-center">

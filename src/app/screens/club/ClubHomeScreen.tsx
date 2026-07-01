@@ -10,6 +10,7 @@ import { api } from '../../services/api';
 import { CalendarEvent } from '../../types';
 import NotificationsDropdown from '../../components/NotificationsDropdown';
 import { MiniCalendar } from '../../components/MiniCalendar';
+import { Skeleton } from '../../components/ui/skeleton';
 
 // Resposta de GET /api/clubs/{clubId}/events (mesmo padrão da CalendarScreen).
 interface EventResponse {
@@ -58,16 +59,19 @@ export default function ClubHomeScreen() {
   const currentUser = useClubStore((state) => state.currentUser);
   const clubId = useClubStore((state) => state.clubId);
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoadingEvents, setIsLoadingEvents] = useState(false);
 
-  // Eventos reais do clube. Degradação silenciosa: enquanto carrega ou em
-  // caso de erro, `events` fica vazio e as seções de evento não aparecem.
+  // Eventos reais do clube. Enquanto carrega, exibe skeleton nas áreas de
+  // evento; em caso de erro, degrada silenciosamente (lista vazia).
   useEffect(() => {
     if (!clubId) {
       setEvents([]);
+      setIsLoadingEvents(false);
       return;
     }
 
     let cancelled = false;
+    setIsLoadingEvents(true);
 
     api<EventResponse[]>('GET', `/api/clubs/${clubId}/events`)
       .then((data) => {
@@ -76,6 +80,9 @@ export default function ClubHomeScreen() {
       })
       .catch(() => {
         if (!cancelled) setEvents([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingEvents(false);
       });
 
     return () => {
@@ -222,12 +229,21 @@ export default function ClubHomeScreen() {
           <div className="text-xs text-gray-400">Compartilhe este código com novos membros</div>
         </motion.div>
 
-        {/* Mini Calendar */}
-        <MiniCalendar
-          events={events}
-          onDateClick={(date) => navigate('/dashboard/calendar')}
-          onViewAll={() => navigate('/dashboard/calendar')}
-        />
+        {/* Mini Calendar (skeleton enquanto carrega eventos do clube) */}
+        {isLoadingEvents ? (
+          <div className="space-y-3 mb-8">
+            <Skeleton className="h-64 w-full rounded-2xl" />
+            {[0, 1, 2].map((i) => (
+              <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            ))}
+          </div>
+        ) : (
+          <MiniCalendar
+            events={events}
+            onDateClick={(date) => navigate('/dashboard/calendar')}
+            onViewAll={() => navigate('/dashboard/calendar')}
+          />
+        )}
 
         {/* Próximos Eventos */}
         {nextEvents.length > 0 && (

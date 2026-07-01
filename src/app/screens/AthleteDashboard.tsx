@@ -1,4 +1,5 @@
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { AnimatePresence, motion } from 'motion/react';
 import { Home, Activity, MessageCircle, User } from 'lucide-react';
 import ResponsiveLayout from '../components/layout/ResponsiveLayout';
 import AthleteHomeScreen from './athlete/AthleteHomeScreen';
@@ -47,16 +48,26 @@ export default function AthleteDashboard({ onLogout }: Props) {
       onLogout={onLogout}
       userRole="ATHLETE"
     >
-      {/* Rotas das telas internas */}
-      <Routes>
-        <Route path="/" element={<AthleteHomeScreen />} />
-        <Route path="/activities" element={<ActivitiesScreen />} />
-        <Route path="/chat" element={<ChatScreen />} />
-        <Route path="/calendar" element={<CalendarScreen />} />
-        <Route path="/payments" element={<PaymentsScreen />} />
-        <Route path="/profile" element={<ProfileScreen onLogout={onLogout} userRole="ATHLETE" />} />
-        <Route path="/settings" element={<AthleteProfileSettingsScreen />} />
-      </Routes>
+      {/* Rotas das telas internas com transição de entrada/saída por rota */}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={currentPath}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: 'easeInOut' }}
+        >
+          <Routes location={location}>
+            <Route path="/" element={<AthleteHomeScreen />} />
+            <Route path="/activities" element={<ActivitiesScreen />} />
+            <Route path="/chat" element={<ChatScreen />} />
+            <Route path="/calendar" element={<CalendarScreen />} />
+            <Route path="/payments" element={<PaymentsScreen />} />
+            <Route path="/profile" element={<ProfileScreen onLogout={onLogout} userRole="ATHLETE" />} />
+            <Route path="/settings" element={<AthleteProfileSettingsScreen />} />
+          </Routes>
+        </motion.div>
+      </AnimatePresence>
     </ResponsiveLayout>
   );
 }
