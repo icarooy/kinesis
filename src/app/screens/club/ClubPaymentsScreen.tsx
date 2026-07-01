@@ -1,16 +1,54 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Plus, DollarSign, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAppData } from '../../contexts/AppDataContext';
+import { useClubStore } from '../../stores/clubStore';
 import { CreateChargeModal } from '../../components/payments/CreateChargeModal';
 import { PaymentCard } from '../../components/payments/PaymentCard';
 import { Button } from '../../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+import type { Payment } from '../../types';
+import { listPayments, createChargeForClub } from '../../services/payments';
+import type { ApiError } from '../../services/api';
 
 export default function ClubPaymentsScreen() {
-  const { payments, teams, addPayment } = useAppData();
+  // `teams` continua vindo do mock local: o backend ainda não modela "turma",
+  // então o seletor de turma do CreateChargeModal é só cosmético por enquanto
+  // (toda cobrança criada é individual, para cada membro ativo do clube).
+  const { teams } = useAppData();
+  const clubId = useClubStore((state) => state.clubId);
+  const [payments, setPayments] = useState<Payment[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
   const [showCreateCharge, setShowCreateCharge] = useState(false);
   const [filterStatus, setFilterStatus] = useState<'all' | 'pending' | 'paid'>('all');
+
+  useEffect(() => {
+    if (!clubId) {
+      setPayments([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+
+    listPayments(clubId)
+      .then((data) => {
+        if (!cancelled) setPayments(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          toast.error((err as ApiError).message ?? 'Não foi possível carregar as cobranças.');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId]);
 
   // Calculate statistics
   const stats = useMemo(() => {
@@ -34,11 +72,29 @@ export default function ClubPaymentsScreen() {
     return payments.filter(p => p.status === filterStatus);
   }, [payments, filterStatus]);
 
-  const handleCreateCharge = (charge: any) => {
-    addPayment({
-      ...charge,
-      status: 'pending',
-    });
+  const handleCreateCharge = async (charge: {
+    title: string;
+    description: string;
+    amount: number;
+    dueDate: Date;
+    teamId?: string;
+  }) => {
+    if (!clubId) return;
+
+    try {
+      const created = await createChargeForClub(clubId, {
+        title: charge.title,
+        description: charge.description,
+        amount: charge.amount,
+        dueDate: charge.dueDate,
+      });
+      setPayments((prev) => [...created, ...prev]);
+      toast.success(
+        `Cobrança criada para ${created.length} atleta${created.length !== 1 ? 's' : ''}.`,
+      );
+    } catch (err) {
+      toast.error((err as ApiError).message ?? 'Não foi possível criar a cobrança.');
+    }
   };
 
   return (
