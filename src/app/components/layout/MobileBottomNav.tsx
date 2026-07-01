@@ -74,7 +74,7 @@ export default function MobileBottomNav({
               />
               <span
                 className={`
-                  text-[10px] leading-tight text-center
+                  text-[10px] leading-tight text-center w-full truncate
                   ${isActive ? 'font-semibold' : 'font-medium'}
                 `}
               >

@@ -1,5 +1,55 @@
 # 🏗️ Overview da Arquitetura - Sistema de Gerenciamento
 
+## 🔌 Integração Backend (Implementado)
+
+A aplicação deixou de ser 100% mock: autenticação e parte dos dados vêm de serviços reais.
+
+### Camada de serviços
+- **`src/lib/supabase.ts`** — cliente Supabase (`createClient`) usado para **Supabase Auth**. A sessão é persistida no localStorage pelo próprio SDK; o header `apikey` é injetado internamente.
+- **`src/app/services/api.ts`** — função base `api<T>(method, path, body?)` para a Kinesis API:
+  - Obtém o `access_token` (JWT) da sessão Supabase; lança `ApiError` `401` se não houver sessão.
+  - Injeta `Authorization: Bearer {token}` em toda requisição.
+  - Usa `VITE_API_BASE_URL` como base; trata `204` (sem body) → `undefined`.
+  - Em `!response.ok`, lança `ApiError { status, message, fieldErrors? }`.
+
+### Autenticação (Supabase Auth)
+- **Login:** `supabase.auth.signInWithPassword` (LoginScreen).
+- **Cadastro:** `supabase.auth.signUp` + `POST /api/users` (RegisterScreen).
+- Não há endpoint `/auth/login` próprio — o JWT emitido pelo Supabase é a credencial usada na Kinesis API.
+
+### Kinesis API (Spring Boot)
+- Base: `https://api-kinesis-production.up.railway.app`
+- Endpoints em uso:
+  - `GET /api/clubs/{clubId}/events`
+  - `GET /api/users/{id}` · `PUT /api/users/{id}`
+  - `POST /api/users`
+
+### Estado de autenticação no `clubStore`
+Campos: `currentUser`, `token`, `isAuthenticated`, `clubId`.
+Actions: `setCurrentUser`, `setToken`, `setClubId`, `logout`. Persistidos no localStorage (`esportiva-club-storage`).
+
+### Telas integradas com API real
+- **LoginScreen**, **RegisterScreen** — Supabase Auth + `POST /api/users`
+- **CalendarScreen** — `GET /api/clubs/{clubId}/events`
+- **AthleteProfileSettingsScreen** — `GET`/`PUT /api/users/{id}`
+- **AthleteHomeScreen**, **ClubHomeScreen** — `currentUser` (nome/avatar) + `GET /api/clubs/{clubId}/events`
+
+### Recursos ainda em mock (sem endpoint)
+PaymentsScreen / ClubPaymentsScreen (pagamentos), posts (feed), ranking/leaderboard, frequência e notificações.
+
+### Padrão de integração de eventos
+`useEffect` dependente de `clubId` + flag `cancelled`, com **degradação silenciosa**: enquanto carrega ou em caso de erro, a lista fica vazia e as seções de evento somem (sem loading/erro visual). Sem `clubId` ou sem endpoint → mantém o mock.
+
+### Variáveis de ambiente (`.env`)
+```
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-anon-key-publica
+VITE_API_BASE_URL=https://api-kinesis-production.up.railway.app
+```
+Referência em `.env.example`.
+
+---
+
 ## 📐 Estrutura de Pastas
 
 ```
@@ -73,7 +123,9 @@ ClubHomeScreen (Dashboard Inicial)
 
 ## 🗂️ Gerenciamento de Estado
 
-### **ClubStoreProvider (Context API)**
+> ⚠️ **Atualização:** o `clubStore` migrou para **Zustand + middleware `persist`** e passou a incluir o estado de autenticação (`currentUser`, `token`, `isAuthenticated`, `clubId`). Ver seção "🔌 Integração Backend". O diagrama abaixo descreve o modelo de domínio (atletas/turmas), que permanece válido.
+
+### **clubStore (Zustand + persist)**
 
 ```typescript
 App.tsx
@@ -410,7 +462,9 @@ Campo Principal | Quadra Poliesportiva 1 | Quadra Poliesportiva 2 | Piscina Olí
 - [ ] Agendar eventos por turma
 
 ### **Fase 4 - Backend**
-- [ ] Integração com Supabase
+- [x] Autenticação com Supabase Auth (signIn/signUp)
+- [x] Integração com a Kinesis API (Spring Boot) — eventos e usuários
+- [ ] Endpoints para pagamentos, posts, ranking, frequência e notificações
 - [ ] Upload de foto do atleta
 - [ ] Notificações push
 

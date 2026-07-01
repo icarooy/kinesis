@@ -47,6 +47,7 @@ export default function DesktopSidebar({
     <motion.aside
       initial={{ x: -280, opacity: 0 }}
       animate={{ x: 0, opacity: 1 }}
+      exit={{ x: -280, opacity: 0 }}
       transition={{ duration: 0.3, ease: 'easeOut' }}
       className="fixed left-0 top-0 h-screen w-[280px] bg-white border-r border-gray-200 flex flex-col"
     >

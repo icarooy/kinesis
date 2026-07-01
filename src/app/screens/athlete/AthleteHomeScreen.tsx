@@ -1,22 +1,90 @@
 import { motion } from 'motion/react';
 import { Calendar as CalendarIcon, DollarSign, TrendingUp, Trophy, AlertCircle, CheckCircle2, Bell } from 'lucide-react';
 import { useAppData } from '../../contexts/AppDataContext';
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { isToday, isTomorrow, format, isPast } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useNavigate } from 'react-router-dom';
 import { useClubStore } from '../../stores/clubStore';
+import { api } from '../../services/api';
+import { CalendarEvent } from '../../types';
 import NotificationsDropdown from '../../components/NotificationsDropdown';
 import { MiniCalendar } from '../../components/MiniCalendar';
 
+// Resposta de GET /api/clubs/{clubId}/events (mesmo padrão da CalendarScreen).
+interface EventResponse {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt?: string;
+  category?: string;
+  location?: string;
+  description?: string;
+}
+
+function mapCategoryToType(category?: string): CalendarEvent['type'] {
+  switch (category) {
+    case 'TRAINING':
+      return 'training';
+    case 'GAME':
+      return 'game';
+    case 'MEETING':
+      return 'meeting';
+    default:
+      return 'other';
+  }
+}
+
+function mapEventResponse(event: EventResponse): CalendarEvent {
+  const date = new Date(event.startsAt);
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    type: mapCategoryToType(event.category),
+    date,
+    startTime: format(date, 'HH:mm'),
+    endTime: event.endsAt ? format(new Date(event.endsAt), 'HH:mm') : undefined,
+    location: event.location,
+    attendees: [],
+  };
+}
+
 export default function AthleteHomeScreen() {
-  const { events, payments, posts } = useAppData();
+  const { payments, posts } = useAppData();
   const navigate = useNavigate();
   const [showNotifications, setShowNotifications] = useState(false);
   const getUnreadCount = useClubStore((state) => state.getUnreadCount);
+  const currentUser = useClubStore((state) => state.currentUser);
+  const clubId = useClubStore((state) => state.clubId);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
 
   // Mock athlete ID - in real app, this would come from auth
   const athleteId = 'athlete1';
+
+  // Eventos reais do clube. Degradação silenciosa: enquanto carrega ou em
+  // caso de erro, `events` fica vazio e as seções de evento não aparecem.
+  useEffect(() => {
+    if (!clubId) {
+      setEvents([]);
+      return;
+    }
+
+    let cancelled = false;
+
+    api<EventResponse[]>('GET', `/api/clubs/${clubId}/events`)
+      .then((data) => {
+        if (cancelled) return;
+        setEvents(Array.isArray(data) ? data.map(mapEventResponse) : []);
+      })
+      .catch(() => {
+        if (!cancelled) setEvents([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId]);
 
   // Calculate stats
   const stats = useMemo(() => {
@@ -59,7 +127,7 @@ export default function AthleteHomeScreen() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-2xl font-bold">Olá, João Silva</h1>
+            <h1 className="text-2xl font-bold">Olá, {currentUser?.name ?? ''}</h1>
             <p className="text-gray-600 text-sm">Sub-15 Masculino</p>
           </div>
           <div className="flex items-center gap-3">
@@ -80,7 +148,7 @@ export default function AthleteHomeScreen() {
               onClick={() => navigate('/dashboard/profile')}
               className="w-12 h-12 bg-black rounded-full flex items-center justify-center hover:bg-gray-800 transition-colors cursor-pointer"
             >
-              <span className="text-white font-bold text-lg">J</span>
+              <span className="text-white font-bold text-lg">{currentUser?.name?.charAt(0).toUpperCase() ?? ''}</span>
             </button>
           </div>
         </div>

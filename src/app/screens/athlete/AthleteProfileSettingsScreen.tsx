@@ -1,8 +1,10 @@
 import { motion } from 'motion/react';
 import { ArrowLeft, Camera, User, Mail, Calendar, Phone, Users, Save } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
+import { useClubStore } from '../../stores/clubStore';
+import { api, type ApiError } from '../../services/api';
 import ImageCropModal from '../../components/ImageCropModal';
 
 interface AthleteProfileForm {
@@ -14,23 +16,76 @@ interface AthleteProfileForm {
   guardianPhone: string;
 }
 
+// Resposta de GET /api/users/{id} (campos que usamos aqui). `bio` é ignorado
+// por ora — a tela não tem campo de bio. Responsável não vem da API.
+interface UserResponse {
+  name?: string;
+  email?: string;
+  phone?: string;
+  birthDate?: string;
+  bio?: string;
+}
+
+// Defaults do form. name/email/phone/birthDate são sobrescritos pelo GET;
+// os campos de responsável seguem mock (sem endpoint).
+const PROFILE_FORM_DEFAULTS: AthleteProfileForm = {
+  name: '',
+  email: '',
+  birthDate: '',
+  personalPhone: '',
+  guardianName: 'Maria Silva',
+  guardianPhone: '(11) 98765-4321',
+};
+
 export default function AthleteProfileSettingsScreen() {
   const navigate = useNavigate();
+  const currentUser = useClubStore((state) => state.currentUser);
   const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [tempImage, setTempImage] = useState<string | null>(null);
   const [isCropModalOpen, setIsCropModalOpen] = useState(false);
 
-  const { register, handleSubmit, formState: { errors, isDirty } } = useForm<AthleteProfileForm>({
-    defaultValues: {
-      name: 'João Silva',
-      email: 'joao.silva@email.com',
-      birthDate: '2009-03-15',
-      personalPhone: '(11) 91234-5678',
-      guardianName: 'Maria Silva',
-      guardianPhone: '(11) 98765-4321',
-    }
-  });
+  const { register, handleSubmit, reset, formState: { errors, isDirty, dirtyFields } } =
+    useForm<AthleteProfileForm>({ defaultValues: PROFILE_FORM_DEFAULTS });
+
+  // Carrega o perfil real ao montar a tela.
+  // TODO: currentUser.id é o UID do Supabase; confirmar se GET/PUT /api/users/{id}
+  // usa esse id ou o id interno da nossa API (risco de 404).
+  useEffect(() => {
+    if (!currentUser) return;
+
+    let cancelled = false;
+    setIsLoading(true);
+    setError('');
+
+    api<UserResponse>('GET', `/api/users/${currentUser.id}`)
+      .then((data) => {
+        if (cancelled) return;
+        reset({
+          name: data.name ?? '',
+          email: data.email ?? '',
+          birthDate: data.birthDate ? data.birthDate.slice(0, 10) : '',
+          personalPhone: data.phone ?? '',
+          // Responsável segue mock (sem endpoint).
+          guardianName: PROFILE_FORM_DEFAULTS.guardianName,
+          guardianPhone: PROFILE_FORM_DEFAULTS.guardianPhone,
+        });
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const apiError = err as ApiError;
+        setError(apiError.message ?? 'Não foi possível carregar o perfil.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser, reset]);
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -50,15 +105,35 @@ export default function AthleteProfileSettingsScreen() {
   };
 
   const onSubmit = async (data: AthleteProfileForm) => {
+    if (!currentUser) return;
+
+    // PUT parcial: só os campos persistíveis que mudaram.
+    // email não é editável; responsável é mock (não persiste).
+    const payload: Record<string, string> = {};
+    if (dirtyFields.name) payload.name = data.name;
+    if (dirtyFields.personalPhone) payload.phone = data.personalPhone;
+    if (dirtyFields.birthDate) payload.birthDate = data.birthDate;
+
+    if (Object.keys(payload).length === 0) {
+      navigate('/dashboard/profile');
+      return;
+    }
+
     setIsSaving(true);
-    
-    // Simular salvamento
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    
-    console.log('Dados salvos:', data);
-    alert('Perfil atualizado com sucesso! ✅');
-    setIsSaving(false);
-    navigate('/dashboard/profile');
+    try {
+      await api('PUT', `/api/users/${currentUser.id}`, payload);
+      alert('Perfil atualizado com sucesso! ✅');
+      navigate('/dashboard/profile');
+    } catch (err) {
+      const apiError = err as ApiError;
+      if (apiError.status === 400 && apiError.fieldErrors) {
+        alert(Object.values(apiError.fieldErrors).join(' '));
+      } else {
+        alert(apiError.message ?? 'Não foi possível salvar o perfil.');
+      }
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
@@ -80,6 +155,19 @@ export default function AthleteProfileSettingsScreen() {
           <h1 className="text-2xl font-bold">Editar Perfil</h1>
         </div>
 
+        {!currentUser ? (
+          <div className="bg-gray-50 rounded-xl p-8 text-center">
+            <p className="text-gray-500">Usuário não autenticado</p>
+          </div>
+        ) : isLoading ? (
+          <div className="bg-gray-50 rounded-xl p-8 text-center">
+            <p className="text-gray-500">Carregando...</p>
+          </div>
+        ) : error ? (
+          <div className="bg-gray-50 rounded-xl p-8 text-center">
+            <p className="text-gray-500">{error}</p>
+          </div>
+        ) : (
         <form onSubmit={handleSubmit(onSubmit)}>
           {/* Avatar Section */}
           <motion.div
@@ -272,6 +360,7 @@ export default function AthleteProfileSettingsScreen() {
             </button>
           </motion.div>
         </form>
+        )}
       </motion.div>
 
       {/* Modal de Recorte de Imagem */}

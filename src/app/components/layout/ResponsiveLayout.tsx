@@ -48,22 +48,25 @@ export default function ResponsiveLayout({
   return (
     <div className="min-h-screen bg-white flex">
       {/* Desktop Sidebar - Renderizado apenas em desktop */}
-      {shouldShowSidebar && (
-        <DesktopSidebar
-          tabs={tabs}
-          currentPath={currentPath}
-          onNavigate={onNavigate}
-          onLogout={onLogout}
-          userRole={userRole}
-        />
-      )}
+      <AnimatePresence>
+        {shouldShowSidebar && (
+          <DesktopSidebar
+            key="desktop-sidebar"
+            tabs={tabs}
+            currentPath={currentPath}
+            onNavigate={onNavigate}
+            onLogout={onLogout}
+            userRole={userRole}
+          />
+        )}
+      </AnimatePresence>
 
       {/* Main Content Area */}
       <main
         className={`
           flex-1 min-h-screen overflow-auto
           ${shouldShowSidebar ? 'ml-[280px]' : 'ml-0'}
-          ${shouldShowBottomNav ? 'pb-20' : 'pb-0'}
+          ${shouldShowBottomNav ? 'pb-[calc(5rem+env(safe-area-inset-bottom))]' : 'pb-0'}
           transition-all duration-300 ease-in-out
         `}
       >

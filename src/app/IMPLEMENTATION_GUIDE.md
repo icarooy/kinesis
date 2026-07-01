@@ -4,6 +4,45 @@
 
 Aplicação web completa para gestão de clubes esportivos amadores com funcionalidades diferenciadas para Coordenadores/Treinadores e Atletas.
 
+## 🔌 Integração Backend (Implementado)
+
+Autenticação e parte dos dados passaram de mock para serviços reais. O restante segue em mock até existir endpoint.
+
+### Camada de serviços
+- **`src/lib/supabase.ts`** — cliente Supabase (`createClient`) para **Supabase Auth**; sessão persistida no localStorage pelo SDK.
+- **`src/app/services/api.ts`** — `api<T>(method, path, body?)`: obtém o `access_token` da sessão Supabase, injeta `Authorization: Bearer {token}`, usa `VITE_API_BASE_URL` como base, trata `204` → `undefined` e lança `ApiError { status, message, fieldErrors? }` em falha (inclui `401` sem sessão).
+
+### Autenticação (Supabase Auth)
+- **Login:** `supabase.auth.signInWithPassword` — LoginScreen.
+- **Cadastro:** `supabase.auth.signUp` + `POST /api/users` — RegisterScreen.
+- O JWT do Supabase é a credencial usada na Kinesis API (não há `/auth/login` próprio).
+
+### Kinesis API (Spring Boot)
+- Base: `https://api-kinesis-production.up.railway.app`
+- Endpoints: `GET /api/clubs/{clubId}/events` · `GET`/`PUT /api/users/{id}` · `POST /api/users`
+
+### Estado de autenticação (`clubStore`, Zustand + persist)
+Campos `currentUser`, `token`, `isAuthenticated`, `clubId` e actions `setCurrentUser`, `setToken`, `setClubId`, `logout`. Persistidos em `esportiva-club-storage`.
+
+### Telas integradas com API real
+- **LoginScreen**, **RegisterScreen** — Supabase Auth + `POST /api/users`
+- **CalendarScreen** — `GET /api/clubs/{clubId}/events`
+- **AthleteProfileSettingsScreen** — `GET`/`PUT /api/users/{id}`
+- **AthleteHomeScreen**, **ClubHomeScreen** — `currentUser` (nome/avatar) + `GET /api/clubs/{clubId}/events`
+
+### Ainda em mock (sem endpoint)
+PaymentsScreen / ClubPaymentsScreen, posts (feed), ranking/leaderboard, frequência e notificações.
+
+### Padrão de integração de eventos
+`useEffect` por `clubId` + flag `cancelled`, **degradação silenciosa**: enquanto carrega ou em erro a lista fica vazia e as seções de evento somem (sem loading/erro visual). Sem `clubId`/endpoint → mantém mock.
+
+### Variáveis de ambiente (`.env`, ver `.env.example`)
+```
+VITE_SUPABASE_URL=https://seu-projeto.supabase.co
+VITE_SUPABASE_ANON_KEY=sua-anon-key-publica
+VITE_API_BASE_URL=https://api-kinesis-production.up.railway.app
+```
+
 ## 🏗️ Arquitetura Implementada
 
 ### Estrutura de Pastas
@@ -194,6 +233,8 @@ Aplicação web completa para gestão de clubes esportivos amadores com funciona
 
 ## 📊 Gerenciamento de Estado
 
+> O estado está dividido em duas camadas: o **`clubStore` (Zustand)** detém autenticação/domínio (ver "🔌 Integração Backend"), enquanto o **`AppDataContext`** abaixo segue provendo os dados ainda em mock.
+
 ### AppDataContext
 
 Provê dados mock e funções CRUD para toda a aplicação:
@@ -297,9 +338,10 @@ Dados salvos automaticamente no `localStorage`:
 5. ⬜ Busca no chat
 
 ### Médio Prazo
-1. ⬜ Backend real (Supabase/Firebase)
-2. ⬜ Autenticação real
-3. ⬜ Upload de mídia (Cloudinary/AWS S3)
+1. ✅ Backend real — Kinesis API (Spring Boot) integrada para eventos e usuários
+2. ✅ Autenticação real — Supabase Auth (signIn/signUp)
+3. ⬜ Endpoints para pagamentos, posts, ranking, frequência e notificações
+4. ⬜ Upload de mídia (Cloudinary/AWS S3)
 4. ⬜ Integração com gateway de pagamento (Stripe/Mercado Pago)
 5. ⬜ Sistema de notificações real (FCM/OneSignal)
 
@@ -347,8 +389,8 @@ npm run preview
 
 ## 📝 Notas Importantes
 
-1. **Mock Data**: Todos os dados são mockados e persistem apenas no localStorage
-2. **User IDs**: Hardcoded para demonstração ('club1', 'athlete1', etc.)
+1. **Mock Data**: Pagamentos, posts, ranking, frequência e notificações permanecem mockados no localStorage. Autenticação (Supabase Auth) e eventos/usuários (Kinesis API) usam serviços reais — ver "🔌 Integração Backend".
+2. **User IDs**: Telas ainda em mock usam IDs hardcoded ('club1', 'athlete1', etc.); as integradas usam o `currentUser`/`clubId` do `clubStore`.
 3. **Imagens**: URLs do Unsplash para demonstração
 4. **Pagamentos**: Sistema de pagamento é simulado (não real)
 5. **Chat**: Não há backend real, mensagens são locais

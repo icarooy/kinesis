@@ -1,20 +1,95 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Calendar as CalendarIcon, X, MapPin, Clock, Users, CheckCircle2, UserPlus } from 'lucide-react';
-import { useAppData } from '../../contexts/AppDataContext';
+import { useClubStore } from '../../stores/clubStore';
+import { api, type ApiError } from '../../services/api';
 import { CalendarEvent } from '../../types';
 import { Button } from '../../components/ui/button';
 import { format, isSameDay, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+// Resposta de GET /api/clubs/{clubId}/events (campos confirmados na doc).
+// `category` é o enum CreateEventRequest: TRAINING | GAME | MEETING (| OTHER).
+interface EventResponse {
+  id: string;
+  title: string;
+  startsAt: string;
+  endsAt?: string;
+  category?: string;
+  location?: string;
+  description?: string;
+}
+
+// category (API) → type (CalendarEvent). Qualquer valor desconhecido → 'other'.
+function mapCategoryToType(category?: string): CalendarEvent['type'] {
+  switch (category) {
+    case 'TRAINING':
+      return 'training';
+    case 'GAME':
+      return 'game';
+    case 'MEETING':
+      return 'meeting';
+    default:
+      return 'other';
+  }
+}
+
+function mapEventResponse(event: EventResponse): CalendarEvent {
+  const date = new Date(event.startsAt);
+  return {
+    id: event.id,
+    title: event.title,
+    description: event.description,
+    type: mapCategoryToType(event.category),
+    date,
+    startTime: format(date, 'HH:mm'),
+    endTime: event.endsAt ? format(new Date(event.endsAt), 'HH:mm') : undefined,
+    location: event.location,
+    attendees: [],
+  };
+}
+
 export default function CalendarScreen() {
-  const { events, toggleEventAttendance } = useAppData();
+  const clubId = useClubStore((state) => state.clubId);
+  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState('');
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [showEventDetails, setShowEventDetails] = useState<CalendarEvent | null>(null);
 
   // Mock athlete ID - in real app, this would come from auth
   const athleteId = 'athlete1';
+
+  // Busca os eventos reais do clube. Sem clubId, não chamamos a API.
+  useEffect(() => {
+    if (!clubId) {
+      setEvents([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setError('');
+
+    api<EventResponse[]>('GET', `/api/clubs/${clubId}/events`)
+      .then((data) => {
+        if (cancelled) return;
+        setEvents(Array.isArray(data) ? data.map(mapEventResponse) : []);
+      })
+      .catch((err) => {
+        if (cancelled) return;
+        const apiError = err as ApiError;
+        setError(apiError.message ?? 'Não foi possível carregar os eventos.');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [clubId]);
 
   // Calendar days
   const monthStart = startOfMonth(currentMonth);
@@ -54,15 +129,27 @@ export default function CalendarScreen() {
     setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1));
   };
 
+  // Presença é client-side/local: a API não tem endpoint de attendance.
+  // Alterna o athleteId no array `attendees` do evento no estado local.
+  const toggleAttendees = (event: CalendarEvent): CalendarEvent => {
+    const attendees = event.attendees ?? [];
+    const attending = attendees.includes(athleteId);
+    return {
+      ...event,
+      attendees: attending
+        ? attendees.filter((id) => id !== athleteId)
+        : [...attendees, athleteId],
+    };
+  };
+
   const handleToggleAttendance = (eventId: string) => {
-    toggleEventAttendance(eventId, athleteId);
-    // Update the showEventDetails if it's the current event
-    if (showEventDetails?.id === eventId) {
-      const updatedEvent = events.find(e => e.id === eventId);
-      if (updatedEvent) {
-        setShowEventDetails(updatedEvent);
-      }
-    }
+    setEvents((prev) =>
+      prev.map((e) => (e.id === eventId ? toggleAttendees(e) : e)),
+    );
+    // Mantém o modal de detalhes em sincronia com o estado local.
+    setShowEventDetails((current) =>
+      current && current.id === eventId ? toggleAttendees(current) : current,
+    );
   };
 
   const isAttending = (event: CalendarEvent) => {
@@ -152,7 +239,22 @@ export default function CalendarScreen() {
               Eventos - {format(selectedDate, "dd 'de' MMMM", { locale: ptBR })}
             </h3>
             
-            {selectedDateEvents.length === 0 ? (
+            {!clubId ? (
+              <div className="bg-gray-50 rounded-xl p-8 text-center">
+                <CalendarIcon size={48} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500">Nenhum clube conectado</p>
+              </div>
+            ) : isLoading ? (
+              <div className="bg-gray-50 rounded-xl p-8 text-center">
+                <CalendarIcon size={48} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500">Carregando eventos...</p>
+              </div>
+            ) : error ? (
+              <div className="bg-gray-50 rounded-xl p-8 text-center">
+                <CalendarIcon size={48} className="mx-auto mb-3 text-gray-300" />
+                <p className="text-gray-500">{error}</p>
+              </div>
+            ) : selectedDateEvents.length === 0 ? (
               <div className="bg-gray-50 rounded-xl p-8 text-center">
                 <CalendarIcon size={48} className="mx-auto mb-3 text-gray-300" />
                 <p className="text-gray-500">Nenhum evento neste dia</p>
