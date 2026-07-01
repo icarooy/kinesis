@@ -99,6 +99,13 @@ export interface Payment {
   paidAt?: Date;
   paymentMethod?: 'pix' | 'boleto' | 'card' | 'cash';
   createdAt: Date;
+  // Campos reais da integração com o gateway Mercado Pago (preenchidos após o checkout).
+  clubId?: string;
+  paymentMethodId?: string; // id bruto do MP, ex.: "pix", "bolbradesco", "master"
+  paymentTypeId?: string; // ex.: "bank_transfer", "ticket", "credit_card"
+  qrCode?: string; // Pix copia-e-cola
+  qrCodeBase64?: string; // Pix QR code (imagem, base64)
+  ticketUrl?: string; // Boleto (link do PDF)
 }
 
 export interface Team {
